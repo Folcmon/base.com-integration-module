@@ -94,6 +94,12 @@ rebuild: build restart ## Przebuduj i uruchom ponownie
 
 k8s-deploy: ## Wdróż na Kubernetes
 	kubectl apply -f k8s/deployment.yaml
+	@if kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then \
+		kubectl apply -f k8s/monitoring.yaml; \
+		echo "✅ ServiceMonitor zastosowany"; \
+	else \
+		echo "ℹ️  Brak CRD ServiceMonitor. Zainstaluj Prometheus Operator lub zastosuj k8s/monitoring.yaml później."; \
+	fi
 	@echo "✅ Wdrożenie K8s wykonane"
 
 k8s-status: ## Status wdrożenia K8s
@@ -105,6 +111,6 @@ k8s-logs: ## Logi z K8s
 	kubectl logs -n baselinker-integration -l app=baselinker-integration -f
 
 k8s-delete: ## Usuń wdrożenie K8s
+	kubectl delete -f k8s/monitoring.yaml --ignore-not-found
 	kubectl delete -f k8s/deployment.yaml
 	@echo "✅ Wdrożenie K8s usunięte"
-
