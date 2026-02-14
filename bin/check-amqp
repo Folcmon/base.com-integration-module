@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Skrypt diagnostyczny dla sprawdzenia czy rozszerzenie amqp jest dostępne w obrazie worker
+# Użycie: ./bin/check-amqp
+
+set -e
+
+echo "1) Przebuduj obraz worker (development target)"
+docker compose build --no-cache --progress=plain worker
+
+echo "\n2) Sprawdź listę rozszerzeń PHP w obrazie worker"
+docker compose run --rm --entrypoint '' worker sh -lc 'php -v; php -m | grep -i amqp || true; php -r "echo extension_loaded(\"amqp\") ? \"AMQP_OK\" : \"AMQP_MISSING\";"'
+
+echo "\n3) Jeżeli rozszerzenie załadowane, uruchom worker (testowo)"
+
+echo "docker compose run --rm worker php bin/console messenger:consume async -vv"
+
+echo "Jeśli widzisz 'AMQP_OK' powyżej, rozszerzenie jest dostępne."
