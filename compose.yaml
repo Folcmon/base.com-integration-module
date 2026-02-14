@@ -1,25 +1,202 @@
-
 services:
+  # Aplikacja PHP
+  app:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - app_cache:/app/var/cache
+      - app_logs:/app/var/log
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql://baselinker:baselinker@database:5432/baselinker?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      BL_API_URL: https://api.baselinker.com/connector.php
+      BL_API_TOKEN: ${BL_API_TOKEN:-your_token_here}
+      MESSENGER_TRANSPORT_DSN: amqp://rabbitmq:rabbitmq@rabbitmq:5672/%2f/async
+      MESSENGER_FAILURE_TRANSPORT_DSN: amqp://rabbitmq:rabbitmq@rabbitmq:5672/%2f/failed
+    depends_on:
+      - database
+      - redis
+      - rabbitmq
+    networks:
+      - baselinker
+
+  # Nginx
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8081:80"
+    volumes:
+      - .:/app
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - baselinker
+
 ###> doctrine/doctrine-bundle ###
   database:
     image: postgres:${POSTGRES_VERSION:-16}-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app}
-      # You should definitely change the password in production
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
-      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-baselinker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-baselinker}
+      POSTGRES_USER: ${POSTGRES_USER:-baselinker}
     healthcheck:
-      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-app}", "-U", "${POSTGRES_USER:-app}"]
+      test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-baselinker}", "-U", "${POSTGRES_USER:-baselinker}"]
       timeout: 5s
       retries: 5
       start_period: 60s
     volumes:
       - database_data:/var/lib/postgresql/data:rw
-      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
-      # - ./docker/db/data:/var/lib/postgresql/data:rw
+    ports:
+      - "5432:5432"
+    networks:
+      - baselinker
 ###< doctrine/doctrine-bundle ###
+
+  # Redis dla Prometheus metrics storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - baselinker
+
+  # Prometheus - zbieranie metryk
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - baselinker
+
+  # Grafana - wizualizacja metryk
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - baselinker
+
+  # MongoDB dla Graylog
+  mongodb:
+    image: mongo:7
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - baselinker
+
+  # OpenSearch dla Graylog (zamiast Elasticsearch)
+  opensearch:
+    image: opensearchproject/opensearch:2.13.0
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=X4Nzd\"60fP|"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - baselinker
+
+  # Graylog - centralne logowanie
+  graylog:
+    image: graylog/graylog:5.2
+    environment:
+      GRAYLOG_PASSWORD_SECRET: somepasswordpepper
+      GRAYLOG_ROOT_PASSWORD_SHA2: 8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918
+      GRAYLOG_HTTP_EXTERNAL_URI: http://localhost:9000/
+      GRAYLOG_ELASTICSEARCH_HOSTS: http://opensearch:9200
+      GRAYLOG_MONGODB_URI: mongodb://mongodb:27017/graylog
+    ports:
+      - "9000:9000"      # Graylog web interface
+      - "12201:12201"    # GELF UDP
+      - "12201:12201/udp"
+    volumes:
+      - graylog_data:/usr/share/graylog/data
+    depends_on:
+      - mongodb
+      - opensearch
+    networks:
+      - baselinker
+
+  # Messenger Worker
+  worker:
+    build:
+      context: .
+      target: development
+    command: php bin/console messenger:consume async -vv
+    volumes:
+      - .:/app
+      - app_cache:/app/var/cache
+      - app_logs:/app/var/log
+    environment:
+      APP_ENV: dev
+      DATABASE_URL: postgresql://baselinker:baselinker@database:5432/baselinker?serverVersion=16&charset=utf8
+      REDIS_URL: redis://redis:6379
+      BL_API_URL: https://api.baselinker.com/connector.php
+      BL_API_TOKEN: ${BL_API_TOKEN:-your_token_here}
+      MESSENGER_TRANSPORT_DSN: amqp://rabbitmq:rabbitmq@rabbitmq:5672/%2f/async
+      MESSENGER_FAILURE_TRANSPORT_DSN: amqp://rabbitmq:rabbitmq@rabbitmq:5672/%2f/failed
+    depends_on:
+      - database
+      - redis
+      - rabbitmq
+      - app
+    networks:
+      - baselinker
+    restart: unless-stopped
+
+  # RabbitMQ - broker kolejek
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: rabbitmq
+      RABBITMQ_DEFAULT_PASS: rabbitmq
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - baselinker
 
 volumes:
 ###> doctrine/doctrine-bundle ###
   database_data:
 ###< doctrine/doctrine-bundle ###
+  app_cache:
+  app_logs:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  mongodb_data:
+  opensearch_data:
+  graylog_data:
+  rabbitmq_data:
+
+networks:
+  baselinker:
+    driver: bridge

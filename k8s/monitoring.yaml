@@ -1,0 +1,16 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: baselinker-metrics
+  namespace: baselinker-integration
+  labels:
+    app: baselinker-integration
+spec:
+  selector:
+    matchLabels:
+      app: baselinker-integration
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s

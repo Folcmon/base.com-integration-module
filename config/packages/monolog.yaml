@@ -1,6 +1,7 @@
 monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - baselinker
 
 when@dev:
     monolog:
@@ -10,6 +11,19 @@ when@dev:
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
                 channels: ["!event"]
+            baselinker:
+                type: stream
+                path: "%kernel.logs_dir%/baselinker.log"
+                level: info
+                channels: ["baselinker"]
+            # Graylog GELF handler for development
+            graylog:
+                type: gelf
+                publisher:
+                    hostname: '%env(default::GRAYLOG_HOST)%'
+                    port: '%env(default:graylog_default_port:int:GRAYLOG_PORT)%'
+                level: info
+                channels: ["baselinker"]
             console:
                 type: console
                 process_psr_3_messages: false
@@ -28,6 +42,11 @@ when@test:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
+            baselinker:
+                type: stream
+                path: "%kernel.logs_dir%/baselinker.log"
+                level: info
+                channels: ["baselinker"]
 
 when@prod:
     monolog:
@@ -44,6 +63,21 @@ when@prod:
                 path: php://stderr
                 level: debug
                 formatter: monolog.formatter.json
+            baselinker:
+                type: stream
+                path: php://stderr
+                level: info
+                formatter: monolog.formatter.json
+                channels: ["baselinker"]
+            # Graylog GELF handler for production
+            graylog:
+                type: gelf
+                publisher:
+                    hostname: '%env(GRAYLOG_HOST)%'
+                    port: '%env(int:GRAYLOG_PORT)%'
+                level: warning
+                formatter: monolog.formatter.json
+                channels: ["baselinker"]
             console:
                 type: console
                 process_psr_3_messages: false

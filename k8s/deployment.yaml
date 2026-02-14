@@ -13,6 +13,8 @@ data:
   APP_ENV: "prod"
   MESSENGER_TRANSPORT_DSN: "doctrine://default?auto_setup=0"
   BL_API_URL: "https://api.baselinker.com/connector.php"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
 ---
 apiVersion: v1
 kind: Secret
@@ -73,6 +75,16 @@ spec:
             secretKeyRef:
               name: baselinker-secrets
               key: REDIS_URL
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: baselinker-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: baselinker-config
+              key: REDIS_PORT
         - name: MESSENGER_TRANSPORT_DSN
           valueFrom:
             configMapKeyRef:
@@ -172,6 +184,16 @@ spec:
             secretKeyRef:
               name: baselinker-secrets
               key: REDIS_URL
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: baselinker-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: baselinker-config
+              key: REDIS_PORT
         resources:
           requests:
             memory: "128Mi"
@@ -228,22 +250,6 @@ data:
         }
     }
 ---
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: baselinker-metrics
-  namespace: baselinker-integration
-  labels:
-    app: baselinker-integration
-spec:
-  selector:
-    matchLabels:
-      app: baselinker-integration
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 30s
----
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -269,4 +275,3 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
-
