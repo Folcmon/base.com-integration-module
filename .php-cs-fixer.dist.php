@@ -49,7 +49,6 @@ return (new PhpCsFixer\Config())
         'single_line_throw' => false,
         'trailing_comma_in_multiline' => ['after_heredoc' => true, 'elements' => ['arrays', 'arguments', 'parameters']],
         'yoda_style' => true,
-        'ordered_imports' => true,
         'ordered_attributes' => true,
         'ordered_types' => true,
         'ordered_class_elements' => true,
