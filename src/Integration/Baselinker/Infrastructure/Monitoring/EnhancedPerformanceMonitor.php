@@ -11,11 +11,11 @@ use Psr\Log\LogLevel;
  * Enhanced performance monitor with structured logging for Graylog/ELK integration.
  * Logs in JSON format with proper context for log aggregation systems.
  */
-final class EnhancedPerformanceMonitor implements PerformanceMonitorInterface
+final readonly class EnhancedPerformanceMonitor implements PerformanceMonitorInterface
 {
     public function __construct(
-        private readonly LoggerInterface $logger,
-        private readonly ?MetricsCollectorInterface $metricsCollector = null,
+        private LoggerInterface            $logger,
+        private ?MetricsCollectorInterface $metricsCollector = null,
     ) {
     }
 
