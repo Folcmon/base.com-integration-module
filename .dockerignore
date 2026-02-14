@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Symfony
+/var/cache/*
+/var/log/*
+!/var/cache/.gitkeep
+!/var/log/.gitkeep
+
+# Tests
+/.phpunit.cache
+/phpunit.xml
+/coverage/
+
+# Environment
+.env.local
+.env.local.php
+.env.*.local
+
+# Documentation
+/docs/
+
+# Docker
+docker-compose.override.yml
+
