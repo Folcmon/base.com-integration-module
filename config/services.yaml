@@ -47,6 +47,9 @@ services:
     # Redis client for Prometheus
     redis.prometheus.client:
         class: Redis
+        calls:
+            - method: connect
+              arguments: ['redis', 6379]
         # Do not call connect at container compile time; connection will be established lazily at runtime.
 
     # By default use a Null metrics collector to keep tests and local env stable.
