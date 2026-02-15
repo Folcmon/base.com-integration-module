@@ -9,6 +9,7 @@
 parameters:
     baselinker.api_url: '%env(BL_API_URL)%'
     baselinker.token: '%env(BL_API_TOKEN)%'
+    baselinker.panel_base_url: '%env(BL_PANEL_BASE_URL)%'
     redis.url: '%env(default::REDIS_URL)%'
 
 services:
@@ -39,18 +40,23 @@ services:
         arguments:
             - '@redis.prometheus.client'
 
+    # Delay Prometheus setup until the collector is actually used.
+    App\Integration\Baselinker\Infrastructure\Monitoring\PrometheusMetricsCollector:
+        lazy: true
+
     # Redis client for Prometheus
     redis.prometheus.client:
         class: Redis
-        calls:
-            - connect: ['%env(REDIS_HOST)%', '%env(int:REDIS_PORT)%']
+        # Do not call connect at container compile time; connection will be established lazily at runtime.
 
-    # Prometheus Metrics Collector
-    App\Integration\Baselinker\Infrastructure\Monitoring\PrometheusMetricsCollector:
-        arguments:
-            $redisStorage: '@Prometheus\Storage\Redis'
+    # By default use a Null metrics collector to keep tests and local env stable.
+    # App\Integration\Baselinker\Infrastructure\Monitoring\NullMetricsCollector: ~
 
-    App\Integration\Baselinker\Infrastructure\Monitoring\MetricsCollectorInterface: '@App\Integration\Baselinker\Infrastructure\Monitoring\PrometheusMetricsCollector'
+    # MetricsCollectorFactory creates either PrometheusMetricsCollector (when ENABLE_PROMETHEUS env=1)
+    # or NullMetricsCollector by default. This avoids Redis/Prometheus dependency during tests.
+    App\Integration\Baselinker\Infrastructure\Monitoring\MetricsCollectorFactory: ~
+    App\Integration\Baselinker\Infrastructure\Monitoring\MetricsCollectorInterface:
+        factory: ['@App\Integration\Baselinker\Infrastructure\Monitoring\MetricsCollectorFactory', 'create']
 
     # HTTP Client
     App\Integration\Baselinker\Infrastructure\Http\BaselinkerHttpClient:
@@ -58,6 +64,12 @@ services:
             $baseUrl: '%baselinker.api_url%'
             $token: '%baselinker.token%'
             $logger: '@monolog.logger.baselinker'
+            $rateLimiterFactory: '@?limiter.factory'
+            $cache: '@cache.app'
+
+    App\Integration\Baselinker\UI\Controller\BaselinkerDeepLinkController:
+        arguments:
+            $panelBaseUrl: '%baselinker.panel_base_url%'
 
     # Enhanced Performance Monitor
     App\Integration\Baselinker\Infrastructure\Monitoring\EnhancedPerformanceMonitor:

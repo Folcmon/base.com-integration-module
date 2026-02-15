@@ -16,6 +16,10 @@
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />
         <server name="KERNEL_CLASS" value="App\Kernel" />
+        <!-- Keep DI params stable even if Dotenv is not loaded in a test run. -->
+        <server name="BL_API_URL" value="https://api.baselinker.com" />
+        <server name="BL_API_TOKEN" value="testtoken" />
+        <server name="BL_PANEL_BASE_URL" value="https://panel.baselinker.com" />
     </php>
 
     <testsuites>

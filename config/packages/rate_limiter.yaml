@@ -1,0 +1,8 @@
+framework:
+    rate_limiter:
+        baselinker_api:
+            policy: sliding_window
+            limit: 100
+            interval: '60s'
+            storage_service: 'cache.app'
+

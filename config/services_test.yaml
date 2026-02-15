@@ -1,0 +1,5 @@
+# Overrides for test environment to avoid hard dependency on local env vars.
+parameters:
+    baselinker.api_url: 'https://api.baselinker.com'
+    baselinker.token: 'testtoken'
+    baselinker.panel_base_url: 'https://panel.baselinker.com'
