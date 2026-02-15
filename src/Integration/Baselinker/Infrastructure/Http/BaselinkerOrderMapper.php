@@ -7,13 +7,15 @@ namespace App\Integration\Baselinker\Infrastructure\Http;
 use App\Integration\Baselinker\Domain\Marketplace;
 use App\Integration\Baselinker\Domain\Order;
 use DateTimeImmutable;
+use Exception;
 use InvalidArgumentException;
+use Throwable;
 
 final class BaselinkerOrderMapper
 {
     /**
      * @param array<string, mixed> $payload
-     * @throws InvalidArgumentException
+     * @throws InvalidArgumentException|Exception
      */
     public function map(array $payload, Marketplace $marketplace): Order
     {
@@ -25,9 +27,22 @@ final class BaselinkerOrderMapper
         $createdAt = $payload['date_add'] ?? null;
         $timestamp = is_numeric($createdAt) ? (int) $createdAt : time();
 
+        // try to detect marketplace from payload fields if present
+        $detectedMarketplace = $marketplace;
+        foreach (['source', 'source_name', 'marketplace'] as $field) {
+            if (isset($payload[$field]) && is_string($payload[$field])) {
+                try {
+                    $detectedMarketplace = Marketplace::from($payload[$field]);
+                    break;
+                } catch (Throwable) {
+                    // ignore and continue
+                }
+            }
+        }
+
         return new Order(
             $externalId,
-            $marketplace,
+            $detectedMarketplace,
             (string) ($payload['order_status'] ?? $payload['status'] ?? 'new'),
             new DateTimeImmutable('@'.$timestamp),
             (float) ($payload['payment_done'] ?? $payload['total'] ?? 0),

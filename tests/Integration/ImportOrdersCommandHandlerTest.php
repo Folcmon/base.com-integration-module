@@ -8,6 +8,7 @@ use App\Integration\Baselinker\Application\Command\ImportOrdersCommand;
 use App\Integration\Baselinker\Application\Handler\ImportOrdersCommandHandler;
 use App\Integration\Baselinker\Domain\Marketplace;
 use App\Integration\Baselinker\Domain\OrderRepository;
+use App\Kernel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -19,9 +20,12 @@ final class ImportOrdersCommandHandlerTest extends KernelTestCase
 {
     protected static function getKernelClass(): string
     {
-        return \App\Kernel::class;
+        return Kernel::class;
     }
 
+    /**
+     * @throws \JsonException
+     */
     public function testItImportsOrdersIntoRepository(): void
     {
         self::bootKernel();
